@@ -1,0 +1,284 @@
+---
+title: "Register User"
+api: "POST /auth/register"
+description: "Register a new user account with email verification"
+---
+
+## Overview
+
+Creates a new user account in the system. This endpoint handles user registration with automatic email verification via OTP (One-Time Password). The user will receive an email with a verification code that must be verified using the `/auth/verify-otp` endpoint before they can log in.
+
+<Note>
+  Role assignment is handled automatically by the system. Users cannot specify their role during registration - all new users are assigned the "user" role by default.
+</Note>
+
+## Request
+
+<ParamField body="email" type="string" required>
+  User's email address. Must be a valid email format and unique in the system.
+</ParamField>
+
+<ParamField body="password" type="string" required>
+  User's password. Must be at least 6 characters long for security.
+</ParamField>
+
+<ParamField body="firstName" type="string" required>
+  User's first name. Used for personalization and identification.
+</ParamField>
+
+<ParamField body="lastName" type="string" required>
+  User's last name. Used for personalization and identification.
+</ParamField>
+
+<ParamField body="phone" type="string" optional>
+  User's phone number. Optional field for additional contact information.
+</ParamField>
+
+<Warning>
+  Do not include a `role` field in the request body. Any attempt to specify a role will result in a 400 error.
+</Warning>
+
+### Request Example
+
+```json
+{
+  "email": "john.doe@example.com",
+  "password": "securePassword123",
+  "firstName": "John",
+  "lastName": "Doe",
+  "phone": "+1234567890"
+}
+```
+
+## Response
+
+<ResponseField name="message" type="string">
+  Success message indicating the registration status
+</ResponseField>
+
+<ResponseField name="user" type="object">
+  User object containing the newly created user information
+  
+  <Expandable title="User Object Properties">
+    <ResponseField name="userId" type="string">
+      Unique identifier for the user in the system
+    </ResponseField>
+    
+    <ResponseField name="firebaseUid" type="string">
+      Firebase authentication unique identifier
+    </ResponseField>
+    
+    <ResponseField name="email" type="string">
+      User's email address
+    </ResponseField>
+    
+    <ResponseField name="role" type="string">
+      User's role in the system (always "user" for new registrations)
+    </ResponseField>
+    
+    <ResponseField name="firstName" type="string">
+      User's first name
+    </ResponseField>
+    
+    <ResponseField name="lastName" type="string">
+      User's last name
+    </ResponseField>
+    
+    <ResponseField name="phone" type="string" optional>
+      User's phone number (if provided)
+    </ResponseField>
+    
+    <ResponseField name="emailVerified" type="boolean">
+      Email verification status (always false for new registrations)
+    </ResponseField>
+    
+    <ResponseField name="createdAt" type="string">
+      ISO timestamp of when the account was created
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+### Success Response (201)
+
+```json
+{
+  "message": "User registered successfully. Please check your email for verification code.",
+  "user": {
+    "userId": "12345678-abcd-1234-efgh-123456789012",
+    "firebaseUid": "firebase_uid_string",
+    "email": "john.doe@example.com",
+    "role": "user",
+    "firstName": "John",
+    "lastName": "Doe",
+    "phone": "+1234567890",
+    "emailVerified": false,
+    "createdAt": "2025-06-29T10:30:00.000Z"
+  }
+}
+```
+
+## Error Responses
+
+<ResponseExample>
+```json Error 400 - Role Specified
+{
+  "error": "Role cannot be specified during registration"
+}
+```
+</ResponseExample>
+
+<ResponseExample>
+```json Error 400 - Validation Error
+{
+  "error": "Email is required"
+}
+```
+</ResponseExample>
+
+<ResponseExample>
+```json Error 409 - Email Already Exists (Firebase)
+{
+  "error": "Email already exists"
+}
+```
+</ResponseExample>
+
+<ResponseExample>
+```json Error 409 - Email Already Exists (Database)
+{
+  "error": "Email already exists in database"
+}
+```
+</ResponseExample>
+
+<ResponseExample>
+```json Error 500 - Server Error
+{
+  "error": "Internal server error"
+}
+```
+</ResponseExample>
+
+## Error Codes
+
+| Status Code | Description | Common Causes |
+|-------------|-------------|---------------|
+| 400 | Bad Request | Missing required fields, role specified, invalid email format, weak password |
+| 409 | Conflict | Email already exists in Firebase or database |
+| 500 | Internal Server Error | Database connection issues, Firebase service errors |
+
+## Security Features
+
+<CardGroup cols={2}>
+  <Card title="Password Encryption" icon="shield-halved">
+    Passwords are securely hashed using Firebase Authentication
+  </Card>
+  
+  <Card title="Email Verification" icon="envelope-circle-check">
+    All new accounts require email verification via OTP before login
+  </Card>
+  
+  <Card title="Role Protection" icon="user-shield">
+    Role assignment is system-controlled to prevent privilege escalation
+  </Card>
+  
+  <Card title="Data Validation" icon="check-circle">
+    All input data is validated for format and security requirements
+  </Card>
+</CardGroup>
+
+## Next Steps
+
+After successful registration:
+
+1. **Email Verification**: User receives an OTP via email
+2. **Verify OTP**: Use `/auth/verify-otp` endpoint to verify the account
+3. **Login**: Once verified, user can login using `/auth/login` endpoint
+
+<Tip>
+  Advise users to check their spam/junk folder if they don't receive the verification email within a few minutes.
+</Tip>
+
+## Rate Limiting
+
+This endpoint may be subject to rate limiting based on:
+- IP address
+- Email address
+- Overall system load
+
+<Warning>
+  Excessive registration attempts from the same IP may result in temporary blocks.
+</Warning>
+
+## Code Examples
+
+<CodeGroup>
+
+```javascript JavaScript/Node.js
+const response = await fetch('/auth/register', {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+  },
+  body: JSON.stringify({
+    email: 'john.doe@example.com',
+    password: 'securePassword123',
+    firstName: 'John',
+    lastName: 'Doe',
+    phone: '+1234567890'
+  })
+});
+
+const data = await response.json();
+
+if (response.ok) {
+  console.log('Registration successful:', data);
+  // Redirect to OTP verification page
+} else {
+  console.error('Registration failed:', data.error);
+}
+```
+
+```python Python
+import requests
+
+url = "https://your-api-domain.com/auth/register"
+payload = {
+    "email": "john.doe@example.com",
+    "password": "securePassword123",
+    "firstName": "John",
+    "lastName": "Doe",
+    "phone": "+1234567890"
+}
+
+response = requests.post(url, json=payload)
+
+if response.status_code == 201:
+    data = response.json()
+    print("Registration successful:", data)
+else:
+    error = response.json()
+    print("Registration failed:", error.get("error"))
+```
+
+```curl cURL
+curl -X POST \
+  https://your-api-domain.com/auth/register \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "email": "john.doe@example.com",
+    "password": "securePassword123",
+    "firstName": "John",
+    "lastName": "Doe",
+    "phone": "+1234567890"
+  }'
+```
+
+</CodeGroup>
+
+## Related Endpoints
+
+- [Verify OTP](/auth/verify-otp) - Verify email address after registration
+- [Resend OTP](/auth/resend-otp) - Resend verification code
+- [Login](/auth/login) - Login with verified account
+- [Forgot Password](/auth/forgot-password) - Reset password if forgotten
